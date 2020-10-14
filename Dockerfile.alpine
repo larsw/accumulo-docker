@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM centos:7
+FROM openjdk:8-jdk-alpine
 
-RUN yum install -y java-1.8.0-openjdk-devel make gcc-c++ wget
-ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk
+RUN apk update && \
+    apk --no-cache add build-base wget bash
+#RUN yum install -y java-1.8.0-openjdk-devel make gcc-c++ wget
+ENV JAVA_HOME /usr/lib/jvm/java-1.8-openjdk/
 
 ARG ACCUMULO_VERSION=1.9.2
 ARG HADOOP_VERSION=2.8.5
@@ -28,12 +30,7 @@ ARG ZOOKEEPER_FILE=
 
 ENV HADOOP_USER_NAME $HADOOP_USER_NAME
 
-ENV APACHE_DIST_URLS \
-  https://www.apache.org/dyn/closer.cgi?action=download&filename= \
-# if the version is outdated (or we're grabbing the .asc file), we might have to pull from the dist/archive :/
-  https://www-us.apache.org/dist/ \
-  https://www.apache.org/dist/ \
-  https://archive.apache.org/dist/
+ENV APACHE_DIST_URLS https://archive.apache.org/dist/
 
 COPY README.md $ACCUMULO_FILE $HADOOP_FILE $ZOOKEEPER_FILE /tmp/
 
@@ -75,12 +72,15 @@ RUN tar xzf accumulo.tar.gz -C /tmp/ && \
  mv /tmp/zookeeper-$ZOOKEEPER_VERSION /opt/zookeeper && \
  mv /tmp/accumulo-$ACCUMULO_VERSION /opt/accumulo && \
  cp /opt/accumulo/conf/examples/2GB/native-standalone/* /opt/accumulo/conf/ && \
- /opt/accumulo/bin/build_native_library.sh && \
  rm /*.tar.gz
 
+ADD build_native_library.sh /opt/accumulo/bin/
+RUN /opt/accumulo/bin/build_native_library.sh && \
+    apk del build-base
+
 ADD ./accumulo-site.xml ./generic_logger.xml ./monitor_logger.xml /opt/accumulo/conf/
-#ADD ./generic_logger.xml /opt/accumulo/conf
-#ADD ./monitor_logger.xml /opt/accumulo/conf
+ADD ./generic_logger.xml /opt/accumulo/conf
+ADD ./monitor_logger.xml /opt/accumulo/conf
 
 ENV HADOOP_HOME /opt/hadoop
 ENV ZOOKEEPER_HOME /opt/zookeeper
